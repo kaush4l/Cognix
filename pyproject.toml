@@ -1,0 +1,24 @@
+[project]
+name = "sadhaka"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "accelerate>=1.13.0",
+    "duckduckgo-search>=8.1.1",
+    "fastapi>=0.115.0",
+    "fastmcp>=3.2.0",
+    "gguf>=0.18.0",
+    "jinja2>=3.1.0",
+    "librosa>=0.11.0",
+    "llama-cpp-python>=0.3.20",
+    "mlx-lm>=0.31.1",
+    "mlx-vlm>=0.4.3",
+    "openai>=2.30.0",
+    "pydantic>=2.12.5",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "transformers>=5.5.0",
+    "uvicorn>=0.34.0",
+]

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Sadhaka — Chat{% endblock %}
+
+{% block content %}
+<div class="layout">
+    <!-- Log sidebar -->
+    <aside class="log-panel" id="log-panel">
+        <h2>Activity Log</h2>
+        <div class="log-entries" id="log-entries"></div>
+    </aside>
+
+    <!-- Main chat area -->
+    <main class="chat-area">
+        <header class="chat-header">
+            <h1>Sadhaka</h1>
+            <span class="subtitle">Agent Console</span>
+        </header>
+
+        <div class="messages" id="messages"></div>
+
+        <!-- Waveform visualizer -->
+        <div class="waveform-container" id="waveform-container" style="display:none;">
+            <canvas id="waveform" width="400" height="60"></canvas>
+        </div>
+
+        <!-- Chat input -->
+        <form class="chat-input"
+              hx-post="/chat"
+              hx-target="#messages"
+              hx-swap="beforeend"
+              hx-on::before-request="showWaveform()"
+              hx-on::after-request="hideWaveform(); this.reset();">
+            <input type="text" name="message" placeholder="Type a message..." autocomplete="off" required>
+            <button type="submit">Send</button>
+        </form>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/waveform.js"></script>
+<script>
+// SSE for live log events
+const evtSource = new EventSource('/events');
+const logEntries = document.getElementById('log-entries');
+
+evtSource.onmessage = function(e) {
+    try {
+        const evt = JSON.parse(e.data);
+        const row = document.createElement('div');
+        row.className = 'log-row status-' + evt.status;
+
+        const ts = new Date(evt.timestamp * 1000);
+        const time = ts.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+        const durStr = evt.duration_ms > 0 ? Math.round(evt.duration_ms) + 'ms' : '';
+
+        // Status badge
+        const statusMap = {running: '⏳', success: '✓', error: '✗'};
+        const badge = statusMap[evt.status] || '';
+
+        // Input/output truncation
+        const inp = (evt.input || '').substring(0, 120);
+        const out = (evt.output || '').substring(0, 200);
+
+        let detail = '';
+        if (evt.event_type === 'tool_call') {
+            detail = `<span class="log-input">${escHtml(inp)}</span>`;
+        } else if (evt.event_type === 'tool_result') {
+            detail = `<span class="log-output">${escHtml(out)}</span>`;
+        } else if (evt.event_type === 'answer') {
+            detail = `<span class="log-output">${escHtml(out)}</span>`;
+        }
+
+        row.innerHTML = `
+            <span class="log-time">${time}</span>
+            <span class="log-badge">${badge}</span>
+            <span class="log-agent">${escHtml(evt.agent)}</span>
+            <span class="log-type">${escHtml(evt.event_type)}</span>
+            <span class="log-tool">${escHtml(evt.tool_name)}</span>
+            ${detail}
+            <span class="log-dur">${durStr}</span>
+        `;
+        logEntries.appendChild(row);
+        logEntries.scrollTop = logEntries.scrollHeight;
+    } catch (err) {}
+};
+
+function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Waveform hooks
+const wfContainer = document.getElementById('waveform-container');
+function showWaveform() { wfContainer.style.display = 'block'; startWaveform(); }
+function hideWaveform() { stopWaveform(); wfContainer.style.display = 'none'; }
+</script>
+{% endblock %}
