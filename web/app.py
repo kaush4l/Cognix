@@ -24,13 +24,13 @@ _web_dir = Path(__file__).parent
 app.mount('/static', StaticFiles(directory=_web_dir / 'static'), name='static')
 templates = Jinja2Templates(directory=_web_dir / 'templates')
 
-# Engine is set at startup from main.py
-engine = None
+# Gateway is set at startup from main.py
+gateway = None
 
 
-def set_engine(e):
-    global engine
-    engine = e
+def set_gateway(g):
+    global gateway
+    gateway = g
 
 
 @app.get('/', response_class=HTMLResponse)
@@ -42,10 +42,10 @@ async def chat_page(request: Request):
 async def chat(request: Request):
     form = await request.form()
     message = form.get('message', '').strip()
-    if not message or engine is None:
+    if not message or gateway is None:
         return HTMLResponse('<div class="msg bot">No input or engine not loaded.</div>')
 
-    answer = await asyncio.to_thread(engine.invoke, message, event_bus.emit)
+    answer = await asyncio.to_thread(gateway.run, message, None, event_bus.emit)
     escaped = (answer or 'No response.').replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
     return HTMLResponse(
         f'<div class="msg human" hx-swap-oob="beforeend:#messages">'

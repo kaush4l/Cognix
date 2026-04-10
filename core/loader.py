@@ -126,27 +126,20 @@ def list_agents(agents_dir: str = 'agents') -> list[str]:
 	return sorted([item.name for item in path.iterdir() if item.is_dir() and (item / 'agent.md').exists()])
 
 
-async def load_team(team_dir: str, agents_dir: str = 'agents') -> BaseEngine:
-	path = Path(team_dir)
-	if not path.exists():
-		path = Path('teams') / team_dir
+def load_team(team_path: str) -> BaseEngine:
+	"""Load a team from its Python module.
 
-	meta, body = _parse_agent_md(path / 'team.md')
-	orchestrator_name = meta.get('orchestrator', '')
-	agent_names = meta.get('agents', [])
-	if not isinstance(agent_names, list):
-		agent_names = []
+	team_path is a dot-separated module path or a file-system path.
+	Examples:
+	  load_team('teams/starter')  -> imports teams.starter.team, calls build()
+	  load_team('teams.starter')  -> same via dot notation
+	"""
+	module_path = team_path.replace('/', '.').replace('\\', '.').strip('.')
+	if not module_path.endswith('.team'):
+		module_path = module_path + '.team'
 
-	# Load member agents
-	agents = {}
-	for name in agent_names:
-		try:
-			agents[name] = load_agent(str(Path(agents_dir) / name))
-			logger.info('loaded_agent=%s', name)
-		except Exception:
-			logger.warning('failed to load agent=%s', name, exc_info=True)
-
-	# Load orchestrator with agent registry so its tool names resolve to engines
-	orchestrator = load_agent(str(Path(agents_dir) / orchestrator_name), agent_engines=agents)
-	logger.info('loaded_team=%s orchestrator=%s agents=%s', meta.get('name', path.name), orchestrator_name, list(agents.keys()))
-	return orchestrator
+	import importlib
+	team_module = importlib.import_module(module_path)
+	engine = team_module.build()
+	logger.info('loaded_team via %s engine=%s', module_path, engine.name)
+	return engine

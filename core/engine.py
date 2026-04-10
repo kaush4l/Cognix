@@ -235,10 +235,10 @@ class BaseEngine(BaseModel):
             return idx, self._execute_tool(tool, kwargs, on_event)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=len(calls)) as pool:
-            futures = [pool.submit(_run, i, t, kw) for i, (_, t, kw) in enumerate(calls)]
-            for f in concurrent.futures.as_completed(futures):
-                idx, result = f.result()
-                results[idx] = result
+            futures = {pool.submit(_run, i, t, kw): i for i, (_, t, kw) in enumerate(calls)}
+            concurrent.futures.wait(futures)
+            for f, idx in futures.items():
+                results[idx] = f.result()[1]
 
         return [(calls[i][0], results[i] or '') for i in range(len(calls))]
 
@@ -257,16 +257,16 @@ class BaseEngine(BaseModel):
             sections.append(self.response_instructions)
         return '\n\n'.join(sections)
 
-    def invoke(self, user_input: str, on_event=None) -> str:
+    def invoke(self, user_input: str, multimodal=None, on_event=None) -> str:
         prompt = self.compose_prompt(user_input)
-        response = self.model_id.infer(prompt, self.multimodal)
+        response = self.model_id.infer(prompt, multimodal or self.multimodal)
         return response or ''
 
 
 class ReactEngine(BaseEngine):
     max_iterations: int = 10
 
-    def invoke(self, user_input: str, on_event=None) -> str:
+    def invoke(self, user_input: str, multimodal=None, on_event=None) -> str:
         # working_memory is local to this invocation — tool call/result steps
         # are scratch-pad context only, not persisted to self.history.
         # self.history holds only [human]/[answer] pairs for multi-turn context.
@@ -275,7 +275,7 @@ class ReactEngine(BaseEngine):
         for i in range(self.max_iterations):
             logger.info('react loop iteration %d/%d for %s', i + 1, self.max_iterations, self.name)
             prompt = self.compose_prompt(user_input, extra=working_memory)
-            response = self.model_id.infer(prompt, self.multimodal) or ''
+            response = self.model_id.infer(prompt, multimodal or self.multimodal) or ''
             parsed = self.response.to_object(response)
             if hasattr(parsed, 'tool_call') and parsed.tool_call:
                 calls = []

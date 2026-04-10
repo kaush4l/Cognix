@@ -7,7 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from core.engine import BaseEngine, ReactEngine, _split_kwargs
 from core.responses import BaseResponse, ReActResponse
 from core.inference import BaseInferenceModel
-from core.loader import load_agent, list_agents
+from core.loader import load_agent, list_agents, load_team
+from core.gateway import Gateway
 
 
 def test_split_kwargs():
@@ -209,6 +210,21 @@ def test_react_response_json():
     print('PASS: test_react_response_json')
 
 
+def test_gateway():
+    def echo(text: str) -> str:
+        return f'echo:{text}'
+
+    engine = BaseEngine(
+        name='test', description='test',
+        model_id=BaseInferenceModel(model='test'),
+        tools=[echo],
+    )
+    gw = Gateway(engine)
+    # Gateway.run() routes to engine.invoke()
+    assert gw.engine is engine
+    print('PASS: test_gateway')
+
+
 if __name__ == '__main__':
     test_split_kwargs()
     test_parse_tool_call()
@@ -222,6 +238,7 @@ if __name__ == '__main__':
     test_engine_as_tool()
     test_list_agents()
     test_parallel_tool_execution()
+    test_gateway()
     test_react_response_toon()
     test_react_response_json()
     print('\nAll tests passed.')
